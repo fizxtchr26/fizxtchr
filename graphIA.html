@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Physics IA Graph Builder (Custom Error Bars)</title>
+
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@11.12.0/lib/browser/math.min.js"></script>
+
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; }
+    h1 { margin: 0 0 10px; font-size: 20px; }
+
+    .split { display: grid; grid-template-columns: 520px 1fr; gap: 14px; }
+    @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+
+    .card { border: 1px solid #3333; border-radius: 12px; padding: 12px; }
+
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+    .row > div { min-width: 0; }
+
+    label { display:block; font-size: 12px; opacity: 0.9; margin-bottom: 4px; }
+
+    input, button {
+      font: inherit;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid #3335;
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+
+    input[type="number"] { width: 160px; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #3333; padding: 6px; text-align: center; }
+    th { background: #00000010; }
+    td input { width: 100%; text-align: center; }
+
+    .hint { font-size: 12px; opacity: 0.85; line-height: 1.35; margin-top: 6px; }
+    .error { color: #b00020; font-size: 12px; margin-top: 8px; white-space: pre-wrap; }
+
+    #plotWrap { padding: 6px; display:flex; flex-direction: column; gap: 10px; }
+    #plot { width: 100%; height: 620px; display: block; }
+
+    .plotMessage {
+      height: 620px;
+      border: 1px solid #3333;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      text-align: center;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .checkRow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      user-select: none;
+    }
+    .checkRow input[type="checkbox"]{
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border-radius: 4px;
+    }
+
+    .eqBox{
+      border: 1px solid #3333;
+      border-radius: 12px;
+      padding: 10px;
+      line-height: 1.4;
+      min-height: 54px;
+      font-size: var(--eq-font-size, 13px);
+    }
+    .eqRow{
+      display:flex;
+      gap:10px;
+      flex-wrap: wrap;
+      align-items: baseline;
+      margin: 2px 0;
+    }
+    .eqLabel{
+      font-weight: 600;
+      min-width: 110px;
+    }
+    .eqText{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Physics IA Graph Builder (Custom Error Bars)</h1>
+
+  <div class="split">
+    <div class="card">
+      <div>
+        <label for="title">Graph Title</label>
+        <input id="title" type="text" style="width:100%;" placeholder="e.g., Period vs Length" />
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="row">
+        <div style="flex:1 1 0;">
+          <label for="xLabel">X-axis Label</label>
+          <input id="xLabel" type="text" style="width:100%;" placeholder="e.g., Length (m)" />
+        </div>
+        <div style="flex:1 1 0;">
+          <label for="yLabel">Y-axis Label</label>
+          <input id="yLabel" type="text" style="width:100%;" placeholder="e.g., Period (s)" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div style="flex:1 1 0;">
+          <label for="xDecimals">X-axis decimal places</label>
+          <input id="xDecimals" type="number" min="0" max="8" step="1" placeholder="(auto)" />
+        </div>
+        <div style="flex:1 1 0;">
+          <label for="yDecimals">Y-axis decimal places</label>
+          <input id="yDecimals" type="number" min="0" max="8" step="1" placeholder="(auto)" />
+        </div>
+      </div>
+      <div class="hint">Leave blank for automatic formatting.</div>
+
+      <div class="row" style="margin-top:10px;">
+        <div style="flex:1 1 0;">
+          <label for="plotFontSize">Graph font size</label>
+          <input id="plotFontSize" type="number" min="8" max="32" step="1" value="14" />
+        </div>
+        <div style="flex:1 1 0;">
+          <label for="eqFontSize">Equation font size</label>
+          <input id="eqFontSize" type="number" min="8" max="28" step="1" value="13" />
+        </div>
+      </div>
+      <div class="hint">Graph font size affects title, axis labels, and tick labels.</div>
+
+      <div style="height:10px"></div>
+
+      <div class="row">
+        <div>
+          <label for="nPoints">Number of data points</label>
+          <input id="nPoints" type="number" min="1" max="200" placeholder="e.g., 6" />
+        </div>
+        <div>
+          <button id="buildTableBtn">Build Table</button>
+        </div>
+      </div>
+
+      <div id="tableWrap"></div>
+
+      <div style="height:10px"></div>
+
+      <div>
+        <label for="trendExpr">Trendline equation</label>
+        <input id="trendExpr" type="text" style="width:100%;" placeholder="Example: 2.31*x + 0.14" />
+        <div class="hint">Use <span class="mono">x</span> as the variable.</div>
+
+        <div class="checkRow">
+          <input id="minMaxToggle" type="checkbox" />
+          <label for="minMaxToggle" style="margin:0; font-size: 13px; opacity: 0.95;">Add min/max fit lines</label>
+        </div>
+      </div>
+
+      <div id="msg" class="error"></div>
+
+      <div style="height:12px"></div>
+
+      <div>
+        <button id="plotBtn" style="width:100%;">Generate Graph</button>
+      </div>
+    </div>
+
+    <div class="card" id="plotWrap">
+      <div id="plot"></div>
+      <div id="equations" class="eqBox"></div>
+    </div>
+  </div>
+
+<script>
+  const nPointsEl = document.getElementById('nPoints');
+  const tableWrap = document.getElementById('tableWrap');
+  const msgEl = document.getElementById('msg');
+  const eqEl = document.getElementById('equations');
+
+  const titleEl = document.getElementById('title');
+  const xLabelEl = document.getElementById('xLabel');
+  const yLabelEl = document.getElementById('yLabel');
+  const trendExprEl = document.getElementById('trendExpr');
+  const minMaxToggleEl = document.getElementById('minMaxToggle');
+
+  const xDecimalsEl = document.getElementById('xDecimals');
+  const yDecimalsEl = document.getElementById('yDecimals');
+
+  const plotFontSizeEl = document.getElementById('plotFontSize');
+  const eqFontSizeEl = document.getElementById('eqFontSize');
+
+  const buildTableBtn = document.getElementById('buildTableBtn');
+  const plotBtn = document.getElementById('plotBtn');
+  const plotDiv = document.getElementById('plot');
+
+  buildTableBtn.addEventListener('click', buildTable);
+  plotBtn.addEventListener('click', plotGraph);
+
+  function setEquationsHTML(html) { eqEl.innerHTML = html; }
+  function clearEquations() {
+    setEquationsHTML(`<div class="hint">Equations will appear here after you generate a graph.</div>`);
+  }
+
+  function applyEquationFontSize() {
+    const fs = parseInt(String(eqFontSizeEl.value || '').trim(), 10);
+    const safe = (Number.isFinite(fs) ? Math.max(8, Math.min(28, fs)) : 13);
+    eqEl.style.setProperty('--eq-font-size', safe + 'px');
+  }
+
+  function showPlotMessage(text) {
+    plotDiv.innerHTML = `<div class="plotMessage">${escapeHTML(text)}</div>`;
+  }
+
+  function escapeHTML(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function clampInt(v, lo, hi) {
+    if (!Number.isFinite(v)) return lo;
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  function parseNumber(s) {
+    if (s === null || s === undefined) return NaN;
+    const t = String(s).trim();
+    if (t === '') return NaN;
+    const v = Number(t);
+    return Number.isFinite(v) ? v : NaN;
+  }
+
+  function parseOptionalInt(el, lo, hi) {
+    const t = String(el.value ?? '').trim();
+    if (t === '') return null;
+    const v = parseInt(t, 10);
+    if (!Number.isFinite(v)) return null;
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  function d3FixedFormat(decimalsOrNull) {
+    if (decimalsOrNull === null) return null;
+    return `.${decimalsOrNull}f`;
+  }
+
+  function rowHTML(idx, rowIndex0) {
+    return `
+      <tr>
+        <td>${idx}</td>
+        <td><input data-row="${rowIndex0}" data-col="0" type="text" inputmode="decimal"></td>
+        <td><input data-row="${rowIndex0}" data-col="1" type="text" inputmode="decimal"></td>
+        <td><input data-row="${rowIndex0}" data-col="2" type="text" inputmode="decimal"></td>
+        <td><input data-row="${rowIndex0}" data-col="3" type="text" inputmode="decimal"></td>
+      </tr>
+    `;
+  }
+
+  function buildTable() {
+    msgEl.textContent = '';
+
+    const rawN = parseInt(nPointsEl.value, 10);
+    if (!Number.isFinite(rawN) || rawN < 1) {
+      msgEl.textContent = 'Enter a valid number of data points (1–200), then click Build Table.';
+      tableWrap.innerHTML = '';
+      return;
+    }
+
+    const n = clampInt(rawN, 1, 200);
+
+    tableWrap.innerHTML = `
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>X</th>
+            <th>ΔX</th>
+            <th>Y</th>
+            <th>ΔY</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Array.from({length: n}, (_, i) => rowHTML(i + 1, i)).join('')}
+        </tbody>
+      </table>
+      <div class="hint">
+        ΔX and ΔY should be positive. Leave blank for 0 if you don’t have an uncertainty.
+      </div>
+    `;
+
+    attachSpreadsheetNavigation();
+    focusCell(0, 0);
+  }
+
+  function getCellInput(row, col) {
+    return document.querySelector(`#dataTable input[data-row="${row}"][data-col="${col}"]`);
+  }
+
+  function focusCell(row, col) {
+    const el = getCellInput(row, col);
+    if (el) {
+      el.focus();
+      try { el.select(); } catch (_) {}
+    }
+  }
+
+  function attachSpreadsheetNavigation() {
+    const table = document.getElementById('dataTable');
+    if (!table) return;
+
+    const inputs = table.querySelectorAll('input[data-row][data-col]');
+    inputs.forEach(inp => {
+      inp.addEventListener('keydown', (e) => {
+        const r = parseInt(inp.dataset.row, 10);
+        const c = parseInt(inp.dataset.col, 10);
+        if (!Number.isFinite(r) || !Number.isFinite(c)) return;
+
+        const maxRow = table.querySelectorAll('tbody tr').length - 1;
+        const maxCol = 3;
+
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (r < maxRow) focusCell(r + 1, c);
+          return;
+        }
+        if (e.key === 'ArrowUp')   { e.preventDefault(); if (r > 0) focusCell(r - 1, c); return; }
+        if (e.key === 'ArrowDown') { e.preventDefault(); if (r < maxRow) focusCell(r + 1, c); return; }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); if (c > 0) focusCell(r, c - 1); return; }
+        if (e.key === 'ArrowRight'){ e.preventDefault(); if (c < maxCol) focusCell(r, c + 1); return; }
+      });
+    });
+  }
+
+  function readTable() {
+    const table = document.getElementById('dataTable');
+    if (!table) throw new Error('Enter the number of data points and click Build Table first.');
+
+    const xs = [], ys = [], dxs = [], dys = [];
+    const errors = [];
+
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    rows.forEach((tr, i) => {
+      const x  = parseNumber(tr.querySelector('input[data-col="0"]').value);
+      const dx = parseNumber(tr.querySelector('input[data-col="1"]').value);
+      const y  = parseNumber(tr.querySelector('input[data-col="2"]').value);
+      const dy = parseNumber(tr.querySelector('input[data-col="3"]').value);
+
+      const rowNum = i + 1;
+
+      if (!Number.isFinite(x)) errors.push(`Row ${rowNum}: X is missing/invalid.`);
+      if (!Number.isFinite(y)) errors.push(`Row ${rowNum}: Y is missing/invalid.`);
+
+      const dxVal = Number.isFinite(dx) ? dx : 0;
+      const dyVal = Number.isFinite(dy) ? dy : 0;
+
+      if (dxVal < 0) errors.push(`Row ${rowNum}: ΔX must be ≥ 0.`);
+      if (dyVal < 0) errors.push(`Row ${rowNum}: ΔY must be ≥ 0.`);
+
+      xs.push(x);
+      ys.push(y);
+      dxs.push(dxVal);
+      dys.push(dyVal);
+    });
+
+    if (errors.length) throw new Error(errors.join('\n'));
+    return { xs, ys, dxs, dys };
+  }
+
+  function computeMinWithUncertainty(values, uncertainties) {
+    let min = Infinity;
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      const u = uncertainties[i] ?? 0;
+      const lo = v - u;
+      if (Number.isFinite(lo) && lo < min) min = lo;
+    }
+    return min;
+  }
+
+  function computeMaxWithUncertainty(values, uncertainties) {
+    let max = -Infinity;
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      const u = uncertainties[i] ?? 0;
+      const hi = v + u;
+      if (Number.isFinite(hi) && hi > max) max = hi;
+    }
+    return max;
+  }
+
+  function niceStep(min, max, targetTicks = 7) {
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max === min) return 1;
+    const span = Math.abs(max - min);
+    const raw = span / targetTicks;
+    const pow10 = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / pow10;
+
+    let mult;
+    if (n <= 1) mult = 1;
+    else if (n <= 2) mult = 2;
+    else if (n <= 2.5) mult = 2.5;
+    else if (n <= 5) mult = 5;
+    else mult = 10;
+
+    return mult * pow10;
+  }
+
+  function indexOfMin(arr) {
+    let idx = 0;
+    let best = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i] < best) { best = arr[i]; idx = i; }
+    }
+    return idx;
+  }
+
+  function indexOfMax(arr) {
+    let idx = 0;
+    let best = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i] > best) { best = arr[i]; idx = i; }
+    }
+    return idx;
+  }
+
+  function lineFromTwoPoints(x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    if (!Number.isFinite(dx) || dx === 0) {
+      throw new Error('Min/Max fit lines can’t be computed (endpoint x-values coincide after uncertainty).');
+    }
+    const m = (y2 - y1) / dx;
+    const b = y1 - m * x1;
+    return { m, b };
+  }
+
+  function evalLine(m, b, x) { return m * x + b; }
+
+  function fmt(n) {
+    if (!Number.isFinite(n)) return 'NaN';
+    const s = Number(n).toPrecision(6);
+    return String(Number(s));
+  }
+  function formatYmxpb(m, b) {
+    const mm = fmt(m);
+    const bb = fmt(Math.abs(b));
+    const sign = (b >= 0) ? ' + ' : ' - ';
+    return `y = ${mm}x${sign}${bb}`;
+  }
+
+  // --- NEW: margin helpers to reduce label/tick overlap ---
+  function formatExampleTick(value, decimalsOrNull) {
+    if (!Number.isFinite(value)) return '0';
+    if (decimalsOrNull === null) {
+      // automatic-ish: emulate a typical tick label length without getting huge
+      const abs = Math.abs(value);
+      if (abs >= 1000) return String(Math.round(value));
+      if (abs >= 1) return String(Number(value.toPrecision(6)));
+      return String(Number(value.toPrecision(4)));
+    }
+    return Number(value).toFixed(decimalsOrNull);
+  }
+
+  function estimateTickChars(minV, maxV, decimalsOrNull) {
+    const v = Math.max(Math.abs(minV), Math.abs(maxV));
+    const s = formatExampleTick(v, decimalsOrNull);
+    // account for sign + a little buffer
+    return s.length + 1;
+  }
+
+  function calcMargins(plotFontSize, xMin, xMax, yMin, yMax, xDec, yDec) {
+    // Rough px-per-character for typical sans fonts:
+    const pxPerChar = plotFontSize * 0.62;
+
+    const yChars = estimateTickChars(yMin, yMax, yDec);
+    const xChars = estimateTickChars(xMin, xMax, xDec);
+
+    // Left margin depends on y tick labels width + breathing room for y title
+    const left = Math.max(70, Math.ceil(yChars * pxPerChar + plotFontSize * 2.6));
+
+    // Bottom margin depends on x tick label height + x title
+    const bottom = Math.max(70, Math.ceil(plotFontSize * 3.6));
+
+    // Top depends on title
+    const top = Math.max(60, Math.ceil(plotFontSize * 3.0));
+
+    // Right can stay small
+    const right = 20;
+
+    return { l: left, r: right, t: top, b: bottom };
+  }
+
+  function plotGraph() {
+    msgEl.textContent = '';
+    applyEquationFontSize();
+
+    if (!window.Plotly) {
+      showPlotMessage('Plotting unavailable (Plotly blocked on this network).');
+      msgEl.textContent = 'Plotting unavailable on this network.';
+      return;
+    }
+
+    const exprRaw = trendExprEl.value.trim();
+    if (!exprRaw) {
+      msgEl.textContent = 'Enter a trendline equation before generating the graph.';
+      return;
+    }
+
+    if (!window.math) {
+      showPlotMessage('Trendline unavailable (math library blocked).');
+      msgEl.textContent = 'Trendline evaluation is unavailable on this network.';
+      return;
+    }
+
+    let data;
+    try {
+      data = readTable();
+    } catch (e) {
+      msgEl.textContent = e.message;
+      return;
+    }
+
+    const title = titleEl.value.trim() || 'Graph';
+    const xLabel = xLabelEl.value.trim() || 'X';
+    const yLabel = yLabelEl.value.trim() || 'Y';
+    const addMinMax = !!minMaxToggleEl.checked;
+
+    const xDec = parseOptionalInt(xDecimalsEl, 0, 8);
+    const yDec = parseOptionalInt(yDecimalsEl, 0, 8);
+    const xTickFormat = d3FixedFormat(xDec);
+    const yTickFormat = d3FixedFormat(yDec);
+
+    const pf = parseInt(String(plotFontSizeEl.value || '').trim(), 10);
+    const plotFontSize = Number.isFinite(pf) ? Math.max(8, Math.min(32, pf)) : 14;
+    const titleSize = Math.min(40, plotFontSize + 4);
+    const axisTitleSize = Math.min(36, plotFontSize + 2);
+    const tickSize = plotFontSize;
+
+    const traces = [{
+      type: 'scatter',
+      mode: 'markers',
+      name: 'Data',
+      showlegend: false,
+      x: data.xs,
+      y: data.ys,
+      marker: { size: 9 },
+      error_x: { type: 'data', array: data.dxs, visible: true, thickness: 1.2, width: 6 },
+      error_y: { type: 'data', array: data.dys, visible: true, thickness: 1.2, width: 6 },
+      hovertemplate:
+        `x: %{x${xTickFormat ? ':' + xTickFormat : ''}}<br>` +
+        `y: %{y${yTickFormat ? ':' + yTickFormat : ''}}<extra></extra>`
+    }];
+
+    const N = 600;
+    const trendYs = [];
+    let xsLine = [];
+    let ysLine = [];
+    let bestLine = null;
+    let maxLine = null;
+    let minLine = null;
+
+    try {
+      const compiled = math.compile(exprRaw);
+      const xmin = Math.min(...data.xs);
+      const xmax = Math.max(...data.xs);
+      const pad = (xmax - xmin) * 0.05 || 1;
+      const x0 = xmin - pad;
+      const x1 = xmax + pad;
+
+      const yA = compiled.evaluate({ x: x0 });
+      const yB = compiled.evaluate({ x: x1 });
+      if (!Number.isFinite(yA) || !Number.isFinite(yB) || x1 === x0) throw new Error('Equation produced invalid values.');
+      bestLine = lineFromTwoPoints(x0, yA, x1, yB);
+
+      for (let i = 0; i < N; i++) {
+        const x = x0 + (x1 - x0) * (i / (N - 1));
+        const y = compiled.evaluate({ x });
+        if (Number.isFinite(y)) {
+          xsLine.push(x);
+          ysLine.push(y);
+          trendYs.push(y);
+        }
+      }
+
+      traces.push({
+        type: 'scatter',
+        mode: 'lines',
+        name: 'Best Fit',
+        showlegend: addMinMax,
+        x: xsLine,
+        y: ysLine,
+        line: { color: 'black', dash: 'solid', width: 2 },
+        hoverinfo: 'skip'
+      });
+    } catch (e) {
+      msgEl.textContent = `Trendline error:\n${e.message}\n\nCheck your equation (use x, e.g., 2.31*x + 0.14).`;
+      return;
+    }
+
+    if (addMinMax) {
+      try {
+        const iL = indexOfMin(data.xs);
+        const iR = indexOfMax(data.xs);
+
+        const xMin = data.xs[iL], yMin = data.ys[iL], dxMin = data.dxs[iL], dyMin = data.dys[iL];
+        const xMax = data.xs[iR], yMax = data.ys[iR], dxMax = data.dxs[iR], dyMax = data.dys[iR];
+
+        const maxP1 = { x: xMin + dxMin, y: yMin - dyMin };
+        const maxP2 = { x: xMax - dxMax, y: yMax + dyMax };
+        maxLine = lineFromTwoPoints(maxP1.x, maxP1.y, maxP2.x, maxP2.y);
+
+        const minP1 = { x: xMin - dxMin, y: yMin + dyMin };
+        const minP2 = { x: xMax + dxMax, y: yMax - dyMax };
+        minLine = lineFromTwoPoints(minP1.x, minP1.y, minP2.x, minP2.y);
+
+        const maxYs = xsLine.map(x => evalLine(maxLine.m, maxLine.b, x));
+        const minYs = xsLine.map(x => evalLine(minLine.m, minLine.b, x));
+
+        traces.push({
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Maximum Fit',
+          x: xsLine,
+          y: maxYs,
+          line: { color: 'red', dash: 'dash', width: 2 },
+          hoverinfo: 'skip'
+        });
+
+        traces.push({
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Minimum Fit',
+          x: xsLine,
+          y: minYs,
+          line: { color: 'green', dash: 'dot', width: 2 },
+          hoverinfo: 'skip'
+        });
+
+      } catch (e) {
+        msgEl.textContent = e.message;
+      }
+    }
+
+    const eqRows = [];
+    if (bestLine) {
+      eqRows.push(`
+        <div class="eqRow">
+          <div class="eqLabel">Best Fit:</div>
+          <div class="eqText">${escapeHTML(formatYmxpb(bestLine.m, bestLine.b))}</div>
+        </div>
+      `);
+    }
+    if (addMinMax) {
+      eqRows.push(`
+        <div class="eqRow">
+          <div class="eqLabel">Maximum Fit:</div>
+          <div class="eqText">${maxLine ? escapeHTML(formatYmxpb(maxLine.m, maxLine.b)) : '—'}</div>
+        </div>
+      `);
+      eqRows.push(`
+        <div class="eqRow">
+          <div class="eqLabel">Minimum Fit:</div>
+          <div class="eqText">${minLine ? escapeHTML(formatYmxpb(minLine.m, minLine.b)) : '—'}</div>
+        </div>
+      `);
+    }
+    setEquationsHTML(eqRows.join(''));
+
+    // Axis range logic
+    const minX = computeMinWithUncertainty(data.xs, data.dxs);
+    const maxX = computeMaxWithUncertainty(data.xs, data.dxs);
+
+    let minY = computeMinWithUncertainty(data.ys, data.dys);
+    let maxY = computeMaxWithUncertainty(data.ys, data.dys);
+
+    if (trendYs.length) {
+      const tMin = Math.min(...trendYs);
+      const tMax = Math.max(...trendYs);
+      if (Number.isFinite(tMin)) minY = Math.min(minY, tMin);
+      if (Number.isFinite(tMax)) maxY = Math.max(maxY, tMax);
+    }
+
+    if (addMinMax) {
+      const mmTraces = traces.filter(t => t.name === 'Maximum Fit' || t.name === 'Minimum Fit');
+      for (const t of mmTraces) {
+        if (Array.isArray(t.y) && t.y.length) {
+          const a = Math.min(...t.y);
+          const b = Math.max(...t.y);
+          if (Number.isFinite(a)) minY = Math.min(minY, a);
+          if (Number.isFinite(b)) maxY = Math.max(maxY, b);
+        }
+      }
+    }
+
+    const forceZeroMinX = (Number.isFinite(minX) && minX >= 0);
+    const forceZeroMinY = (Number.isFinite(minY) && minY >= 0);
+
+    const xMinForTicks = forceZeroMinX ? 0 : minX;
+    const yMinForTicks = forceZeroMinY ? 0 : minY;
+
+    const xStep = niceStep(xMinForTicks, maxX, 7);
+    const yStep = niceStep(yMinForTicks, maxY, 7);
+
+    const titleStandoff = Math.max(8, Math.min(24, Math.round(plotFontSize * 0.9)));
+
+    const xaxis = {
+      title: { text: xLabel, font: { size: axisTitleSize }, standoff: titleStandoff },
+      showline: true,
+      tickmode: 'linear',
+      dtick: xStep,
+      tick0: forceZeroMinX ? 0 : Math.floor(xMinForTicks / xStep) * xStep,
+      zeroline: false,
+      tickfont: { size: tickSize },
+      automargin: true
+    };
+
+    const yaxis = {
+      title: { text: yLabel, font: { size: axisTitleSize }, standoff: titleStandoff },
+      showline: true,
+      tickmode: 'linear',
+      dtick: yStep,
+      tick0: forceZeroMinY ? 0 : Math.floor(yMinForTicks / yStep) * yStep,
+      zeroline: false,
+      tickfont: { size: tickSize },
+      automargin: true
+    };
+
+    if (xTickFormat) { xaxis.tickformat = xTickFormat; xaxis.hoverformat = xTickFormat; }
+    if (yTickFormat) { yaxis.tickformat = yTickFormat; yaxis.hoverformat = yTickFormat; }
+
+    if (forceZeroMinX) xaxis.rangemode = 'tozero';
+    if (forceZeroMinY) yaxis.rangemode = 'tozero';
+
+    // NEW: dynamic margins to reduce overlap risk
+    const margins = calcMargins(plotFontSize, xMinForTicks, maxX, yMinForTicks, maxY, xDec, yDec);
+
+    const layout = {
+      title: { text: title, font: { size: titleSize } },
+      font: { size: plotFontSize },
+      showlegend: addMinMax,
+      xaxis,
+      yaxis,
+      margin: margins
+    };
+
+    const config = { responsive: true, displaylogo: false };
+
+    plotDiv.innerHTML = '';
+    Plotly.newPlot('plot', traces, layout, config);
+  }
+
+  // On load
+  applyEquationFontSize();
+  clearEquations();
+
+  if (!window.Plotly) {
+    showPlotMessage('Plotting unavailable (Plotly blocked on this network).');
+  } else {
+    Plotly.newPlot(
+      'plot',
+      [],
+      {
+        xaxis: { range: [0, 6], showline: true, tickmode: 'linear', tick0: 0, dtick: 1, zeroline: false, tickfont: { size: 14 }, automargin: true, title: { standoff: 12 } },
+        yaxis: { range: [0, 6], showline: true, tickmode: 'linear', tick0: 0, dtick: 1, zeroline: false, tickfont: { size: 14 }, automargin: true, title: { standoff: 12 } },
+        margin: { l: 70, r: 20, t: 20, b: 70 },
+        showlegend: false
+      },
+      { responsive: true, displaylogo: false }
+    );
+  }
+</script>
+</body>
+</html>
