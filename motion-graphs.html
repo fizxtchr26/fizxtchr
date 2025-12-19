@@ -42,9 +42,9 @@
       let t = 0, x = +x0, v = +v0;
       for (const seg of segments) {
         const dur = +seg.duration || 0;
-        theA = +seg.a || 0;
-        const xEnd = x + v * dur + 0.5 * theA * dur * dur;
-        const vEnd = v + theA * dur;
+        const a = +seg.a || 0;
+        const xEnd = x + v * dur + 0.5 * a * dur * dur;
+        const vEnd = v + a * dur;
         t += dur; x = xEnd; v = vEnd;
         boundaries.push({ t, x, v });
       }
