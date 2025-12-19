@@ -4,30 +4,61 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Motion Graph Maker (Piecewise a)</title>
+
   <style>
     :root { --ink:#1f2937; --line:#2563eb; --grid:#e5e7eb; --axis:#111827; --bg:#ffffff; }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; color:var(--ink); background:#f8fafc; }
-    .wrap { max-width:1100px; margin:24px auto; padding:0 12px; }
-    .card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); padding:16px; }
-    .grid { display:grid; gap:16px; }
-    @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    .wrap { max-width:1200px; margin:16px auto; padding:0 12px; }
+
+    /* Layout: controls left, graphs right */
+    .layout { display:grid; gap:14px; }
+    @media (min-width: 980px) { .layout { grid-template-columns: 380px 1fr; align-items:start; } }
+    .controls { position:relative; }
+    @media (min-width: 980px) {
+      .controlsInner { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow:auto; padding-right:4px; }
+    }
+
+    /* Compact cards */
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow: 0 1px 2px rgba(0,0,0,.04); padding:10px; }
+    .card h3 { margin:0 0 8px; font-size:14px; font-weight:650; color:#111827; }
+    .title { font-size:20px; font-weight:650; margin:0 0 4px; }
+    .subtitle { color:#475569; margin:0 0 12px; font-size:13px; }
+
+    /* Details sections */
+    details { border:1px solid #eef2f7; border-radius:12px; background:#fff; }
+    details + details { margin-top:10px; }
+    summary { cursor:pointer; list-style:none; padding:10px 10px; font-weight:650; font-size:13px; color:#111827; }
+    summary::-webkit-details-marker { display:none; }
+    .sectionBody { padding:0 10px 10px; }
+
+    /* Inputs & tables: compact */
+    label { font-size:11px; color:#64748b; display:block; margin-bottom:4px; }
+    input[type="number"], select { width:100%; padding:6px 8px; border:1px solid #d1d5db; border-radius:10px; font-size:13px; background:#fff; }
+    .row { display:flex; gap:10px; align-items:center; }
+    .grid { display:grid; gap:10px; }
+    .grid3 { grid-template-columns: repeat(3, 1fr); }
+    .grid2 { grid-template-columns: repeat(2, 1fr); }
+    .grid4 { grid-template-columns: repeat(4, 1fr); }
     table { width:100%; border-collapse: collapse; }
-    th, td { padding:8px; border-bottom:1px solid #eef2f7; font-size:14px; }
-    th { text-align:left; color:#475569; }
-    input[type="number"], select { width:100%; padding:7px 9px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; background:#fff; }
-    label { font-size:12px; color:#64748b; display:block; margin-bottom:4px; }
-    .row { display:flex; gap:12px; align-items:center; }
+    th, td { padding:6px; border-bottom:1px solid #eef2f7; font-size:13px; }
+    th { text-align:left; color:#475569; font-weight:650; }
     .btnrow { display:flex; gap:8px; flex-wrap:wrap; }
-    button { appearance:none; border:1px solid #cbd5e1; background:#fff; color:#111827; padding:6px 10px; border-radius:10px; font-size:13px; cursor:pointer; }
+    button { appearance:none; border:1px solid #cbd5e1; background:#fff; color:#111827; padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer; }
     button.primary { background:#111827; color:#fff; border-color:#111827; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
     .muted { color:#64748b; font-size:12px; }
-    .title { font-size:22px; font-weight:600; margin:0 0 6px; }
-    .subtitle { color:#475569; margin:0 0 16px; }
+    .divider { height:1px; background:#eef2f7; margin:10px 0; }
+
+    /* Graph column */
+    .graphs .card { padding:12px; }
+    .graphTitle { font-weight:650; font-size:13px; }
   </style>
+
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
+
 <body>
   <div id="app" class="wrap"></div>
 
@@ -38,8 +69,10 @@
     function integratePiecewise({ x0, v0, segments, samplesPerSecond = 60 }) {
       const totalT = segments.reduce((s, seg) => s + (+seg.duration || 0), 0);
       const dt = totalT > 0 ? 1 / samplesPerSecond : 0.016;
+
       const boundaries = [{ t: 0, x: +x0, v: +v0 }];
       let t = 0, x = +x0, v = +v0;
+
       for (const seg of segments) {
         const dur = +seg.duration || 0;
         const a = +seg.a || 0;
@@ -48,6 +81,7 @@
         t += dur; x = xEnd; v = vEnd;
         boundaries.push({ t, x, v });
       }
+
       const evalAt = (tt) => {
         let cum = 0, px = +x0, pv = +v0;
         for (const seg of segments) {
@@ -66,6 +100,7 @@
         const last = boundaries[boundaries.length - 1];
         return { x: last.x, v: last.v, a: 0 };
       };
+
       const N = Math.max(2, Math.ceil(totalT / dt) + 1);
       const tArr = Array.from({ length: N }, (_, i) => (i * totalT) / (N - 1));
       const xArr = [], vArr = [], aArr = [];
@@ -73,6 +108,7 @@
         const { x, v, a } = evalAt(tt);
         xArr.push(x); vArr.push(v); aArr.push(a);
       }
+
       const aSteps = [];
       let cum = 0;
       for (const seg of segments) {
@@ -90,6 +126,7 @@
       const niceFrac = frac < 1.5 ? 1 : frac < 3 ? 2 : frac < 7 ? 5 : 10;
       return niceFrac * Math.pow(10, exp);
     }
+
     function makeTicks(min, max, count=5) {
       const span = max - min || 1;
       const step = niceStep(span / count);
@@ -98,6 +135,7 @@
       for (let v = start; v <= max + 1e-9; v += step) ticks.push(+v.toFixed(10));
       return ticks;
     }
+
     function makeTicksWithStep(min, max, step) {
       const s = Math.abs(+step || 0);
       if (!(s > 0)) return makeTicks(min, max);
@@ -106,6 +144,7 @@
       for (let v = start; v <= max + 1e-9; v += s) ticks.push(+v.toFixed(10));
       return ticks;
     }
+
     const fmtFixed = (n, dp) => Number(n).toFixed(dp);
     const fmtSmart = (n) => {
       const a = Math.abs(n);
@@ -115,15 +154,14 @@
       if (a >= 1) return n.toFixed(1);
       return n.toFixed(2);
     };
-    function stepPath(points) {
+
+    function polyPath(points) {
       if (!points.length) return "";
       let d = `M${points[0][0]},${points[0][1]}`;
-      for (let i = 1; i < points.length; i++) {
-        const [x, y] = points[i];
-        d += ` L${x},${y}`;
-      }
+      for (let i = 1; i < points.length; i++) d += ` L${points[i][0]},${points[i][1]}`;
       return d;
     }
+
     async function exportSvgToPng(svgEl, filename, width, height) {
       const clone = svgEl.cloneNode(true);
       clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -132,11 +170,13 @@
       const url = URL.createObjectURL(blob);
       const img = new Image();
       await new Promise(res => { img.onload = res; img.src = url; });
+
       const canvas = document.createElement("canvas");
       canvas.width = width * 2; canvas.height = height * 2;
       const ctx = canvas.getContext("2d");
       ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
       canvas.toBlob(b => {
         const url2 = URL.createObjectURL(b);
         const a = document.createElement("a");
@@ -149,15 +189,22 @@
     // -------------------- CHART COMPONENT --------------------
     function Chart({
       data, xLabel, yLabel, title,
-      height = 320,
+      height = 320, width = 560,
+
+      // padding (all or per-side)
       paddingAll = 70, paddingTop = null, paddingRight = null, paddingBottom = null, paddingLeft = null,
-      yIsStep = false,
+
+      // decimals
       decimalsX = null, decimalsY = null,
+
+      // tick steps
       tickStepX = null, tickStepY = null,
+
       // fonts & offsets
       TICK_FONT = 14, AXIS_FONT = 18,
       X_TICK_OFFSET = 20, X_LABEL_OFFSET = 10,
       Y_TICK_OFFSET = 12, Y_LABEL_OFFSET = 26,
+
       // line widths
       LINE_WIDTH_DATA = 2,
       LINE_WIDTH_AXIS = 1,
@@ -166,9 +213,7 @@
       LINE_WIDTH_TICKS = 1,
     }) {
       const svgRef = useRef(null);
-      const width = 560;
 
-      // Resolve per-side padding (fallback to paddingAll)
       const padT = paddingTop ?? paddingAll;
       const padR = paddingRight ?? paddingAll;
       const padB = paddingBottom ?? paddingAll;
@@ -194,17 +239,18 @@
       return (
         <div className="card">
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <div style={{fontWeight:600}}>{title}</div>
+            <div className="graphTitle">{title}</div>
             <div className="btnrow">
               <button onClick={()=>exportSvgToPng(svgRef.current, `${title}.png`, width, height)}>Download PNG</button>
             </div>
           </div>
+
           <svg ref={svgRef} width={width} height={height} style={{background:"#fff", borderRadius:12}}>
             {/* axes */}
             <line x1={padL} y1={padT} x2={padL} y2={height-padB} stroke="#111827" strokeWidth={LINE_WIDTH_AXIS} />
             <line x1={padL} y1={yZero} x2={width-padR} y2={yZero} stroke="#111827" strokeWidth={LINE_WIDTH_AXIS_ZERO} />
 
-            {/* grid & ticks */}
+            {/* grid + ticks */}
             {xTicks.map((tx,i)=>(
               <g key={"xt"+i}>
                 <line x1={xTo(tx)} y1={padT} x2={xTo(tx)} y2={height-padB} stroke="#e5e7eb" strokeWidth={LINE_WIDTH_GRID} />
@@ -234,10 +280,7 @@
             </g>
 
             {/* data */}
-            {yIsStep
-              ? <path d={stepPath(points)} fill="none" stroke="#2563eb" strokeWidth={LINE_WIDTH_DATA} />
-              : <path d={stepPath(points)} fill="none" stroke="#2563eb" strokeWidth={LINE_WIDTH_DATA} />
-            }
+            <path d={polyPath(points)} fill="none" stroke="#2563eb" strokeWidth={LINE_WIDTH_DATA} />
           </svg>
         </div>
       );
@@ -245,13 +288,37 @@
 
     // -------------------- APP --------------------
     function App() {
-      // core inputs
+      // Initial conditions
       const [x0, setX0] = useState(0);
       const [v0, setV0] = useState(2);
-      const [segments, setSegments] = useState([{ duration: 2, a: 0 }, { duration: 2, a: -1 }, { duration: 1.5, a: 2 }]);
       const [sps, setSps] = useState(60);
 
-      // decimals
+      // Time segments
+      const [segments, setSegments] = useState([{ duration: 2, a: 0 }, { duration: 2, a: -1 }, { duration: 1.5, a: 2 }]);
+
+      // Style & spacing
+      const [TICK_FONT, setTickFont] = useState(14);
+      const [AXIS_FONT, setAxisFont] = useState(18);
+      const [X_TICK_OFFSET, setXTickOffset] = useState(20);
+      const [X_LABEL_OFFSET, setXLabelOffset] = useState(10);
+      const [Y_TICK_OFFSET, setYTickOffset] = useState(12);
+      const [Y_LABEL_OFFSET, setYLabelOffset] = useState(26);
+
+      const [useSamePadding, setUseSamePadding] = useState(false);
+      const [paddingAll, setPaddingAll] = useState(70);
+      const [paddingTop, setPaddingTop] = useState(70);
+      const [paddingRight, setPaddingRight] = useState(70);
+      const [paddingBottom, setPaddingBottom] = useState(70);
+      const [paddingLeft, setPaddingLeft] = useState(70);
+
+      // Line thickness
+      const [LINE_WIDTH_DATA, setLwData] = useState(2);
+      const [LINE_WIDTH_AXIS, setLwAxis] = useState(1);
+      const [LINE_WIDTH_AXIS_ZERO, setLwAxisZero] = useState(2.5);
+      const [LINE_WIDTH_GRID, setLwGrid] = useState(0.8);
+      const [LINE_WIDTH_TICKS, setLwTicks] = useState(1);
+
+      // Axis label decimals
       const [sameDP, setSameDP] = useState(true);
       const [allDP, setAllDP] = useState('auto');
       const [dpT, setDpT] = useState('auto');
@@ -264,12 +331,12 @@
       const decV = sameDP?dec(allDP):dec(dpV);
       const decA = sameDP?dec(allDP):dec(dpA);
 
-      // tick step controls
+      // Axis tick steps
       const [autoSteps, setAutoSteps] = useState(true);
-      const [tStep, setTStep] = useState("");  // seconds
-      const [xStep, setXStep] = useState("");  // meters
-      const [vStep, setVStep] = useState("");  // m/s
-      const [aStep, setAStep] = useState("");  // m/s^2
+      const [tStep, setTStep] = useState("");
+      const [xStep, setXStep] = useState("");
+      const [vStep, setVStep] = useState("");
+      const [aStep, setAStep] = useState("");
       const valOrNull = (s) => {
         const n = Number(s);
         return Number.isFinite(n) && n > 0 ? n : null;
@@ -279,30 +346,8 @@
       const stepV = autoSteps ? null : valOrNull(vStep);
       const stepA = autoSteps ? null : valOrNull(aStep);
 
-      // style: fonts & offsets
-      const [TICK_FONT, setTickFont] = useState(14);
-      const [AXIS_FONT, setAxisFont] = useState(18);
-      const [X_TICK_OFFSET, setXTickOffset] = useState(20);
-      const [X_LABEL_OFFSET, setXLabelOffset] = useState(10);
-      const [Y_TICK_OFFSET, setYTickOffset] = useState(12);
-      const [Y_LABEL_OFFSET, setYLabelOffset] = useState(26);
-
-      // style: line widths
-      const [LINE_WIDTH_DATA, setLwData] = useState(2);
-      const [LINE_WIDTH_AXIS, setLwAxis] = useState(1);
-      const [LINE_WIDTH_AXIS_ZERO, setLwAxisZero] = useState(2.5);
-      const [LINE_WIDTH_GRID, setLwGrid] = useState(0.8);
-      const [LINE_WIDTH_TICKS, setLwTicks] = useState(1);
-
-      // style: padding
-      const [useSamePadding, setUseSamePadding] = useState(false);
-      const [paddingAll, setPaddingAll] = useState(70);
-      const [paddingTop, setPaddingTop] = useState(70);
-      const [paddingRight, setPaddingRight] = useState(70);
-      const [paddingBottom, setPaddingBottom] = useState(70);
-      const [paddingLeft, setPaddingLeft] = useState(70);
-
-      const { tArr, xArr, vArr, aSteps } = useMemo(() =>
+      // Data
+      const { tArr, xArr, vArr, aSteps, totalT } = useMemo(() =>
         integratePiecewise({
           x0:+x0||0, v0:+v0||0,
           segments: segments.map(s=>({duration:+s.duration||0,a:+s.a||0})),
@@ -311,12 +356,11 @@
 
       const xData = tArr.map((t,i)=>[t,xArr[i]]);
       const vData = tArr.map((t,i)=>[t,vArr[i]]);
-      const totalT = segments.reduce((a,b)=>a+(+b.duration||0),0);
-      const aData = aSteps.length?aSteps:[[0,0],[Math.max(1,totalT),0]];
+      const aData = aSteps.length ? aSteps : [[0,0],[Math.max(1,totalT),0]];
 
-      const addSeg=()=>setSegments(s=>[...s,{duration:1,a:0}]);
-      const rmSeg=i=>setSegments(s=>s.filter((_,j)=>j!==i));
-      const updSeg=(i,k,v)=>setSegments(s=>s.map((seg,j)=>j===i?{...seg,[k]:v}:seg));
+      const addSeg = () => setSegments(s => [...s, { duration: 1, a: 0 }]);
+      const rmSeg = (i) => setSegments(s => s.filter((_,j)=>j!==i));
+      const updSeg = (i, k, v) => setSegments(s => s.map((seg,j)=> j===i ? {...seg,[k]:v} : seg));
 
       const padProps = useSamePadding
         ? { paddingAll }
@@ -330,196 +374,202 @@
       };
 
       return (
-        <div className="grid" style={{gap:24}}>
-          <header>
-            <h1 className="title">Motion Graph Maker (Piecewise Constant Acceleration)</h1>
-            <p className="subtitle">Enter x₀, v₀, and per-interval acceleration → export clean SVG/PNG graphs for worksheets.</p>
-          </header>
-
-          <div className="grid grid-2" style={{gap:16}}>
-            <div className="card">
-              <h3 style={{marginTop:0, marginBottom:10}}>Initial Conditions</h3>
-              <div className="grid" style={{gridTemplateColumns:"repeat(3,1fr)", gap:12}}>
-                <div><label>x₀ (m)</label><input type="number" value={x0} onChange={e=>setX0(e.target.value)} /></div>
-                <div><label>v₀ (m/s)</label><input type="number" value={v0} onChange={e=>setV0(e.target.value)} /></div>
-                <div><label>Sampling (pts/s)</label><input type="number" min="5" max="240" value={sps} onChange={e=>setSps(e.target.value)} /></div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="row" style={{justifyContent:"space-between"}}>
-                <h3 style={{marginTop:0}}>Time Segments (Δt, a)</h3>
-                <button className="primary" onClick={addSeg}>+ Add segment</button>
-              </div>
-              <table>
-                <thead><tr><th>#</th><th>Δt (s)</th><th>a (m/s²)</th><th></th></tr></thead>
-                <tbody>
-                  {segments.map((seg,i)=>(
-                    <tr key={i}>
-                      <td>{i+1}</td>
-                      <td><input type="number" min="0" step="any" value={seg.duration} onChange={e=>updSeg(i,"duration", e.target.value)} /></td>
-                      <td><input type="number" step="any" value={seg.a} onChange={e=>updSeg(i,"a", e.target.value)} /></td>
-                      <td style={{textAlign:"right"}}><button onClick={()=>rmSeg(i)} disabled={segments.length===1}>Remove</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="muted" style={{marginTop:8}}>Total time: <b>{Number(totalT).toFixed(decT ?? 2)}</b> s</div>
-            </div>
+        <div>
+          <div style={{marginBottom:10}}>
+            <div className="title">Motion Graph Maker (Piecewise Constant Acceleration)</div>
+            <div className="subtitle">Controls on the left, graphs on the right. Export PNGs for worksheets.</div>
           </div>
 
-          <div className="card">
-            <h3 style={{marginTop:0}}>Axis label decimals</h3>
-            <div className="row">
-              <input id="sameDP" type="checkbox" checked={sameDP} onChange={e=>setSameDP(e.target.checked)} />
-              <label htmlFor="sameDP" style={{margin:0}}>Use same decimals for all axes</label>
-            </div>
-            {sameDP ? (
-              <div style={{maxWidth:220, marginTop:12}}>
-                <label>All axes</label>
-                <select value={allDP} onChange={e=>setAllDP(e.target.value)}>
-                  <option value="auto">Auto</option><option value="0">0</option><option value="1">1</option>
-                  <option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                </select>
-              </div>
-            ) : (
-              <div className="grid" style={{gridTemplateColumns:"repeat(4,1fr)", gap:12, marginTop:12}}>
-                <div><label>t (time)</label><select value={dpT} onChange={e=>setDpT(e.target.value)}><option value="auto">Auto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
-                <div><label>x (position)</label><select value={dpX} onChange={e=>setDpX(e.target.value)}><option value="auto">Auto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
-                <div><label>v (velocity)</label><select value={dpV} onChange={e=>setDpV(e.target.value)}><option value="auto">Auto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
-                <div><label>a (acceleration)</label><select value={dpA} onChange={e=>setDpA(e.target.value)}><option value="auto">Auto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
-              </div>
-            )}
-          </div>
+          <div className="layout">
+            {/* LEFT: CONTROLS */}
+            <div className="controls">
+              <div className="controlsInner">
+                <details open>
+                  <summary>Initial Conditions</summary>
+                  <div className="sectionBody">
+                    <div className="grid grid3">
+                      <div><label>x₀ (m)</label><input type="number" value={x0} onChange={e=>setX0(e.target.value)} /></div>
+                      <div><label>v₀ (m/s)</label><input type="number" value={v0} onChange={e=>setV0(e.target.value)} /></div>
+                      <div><label>Sampling (pts/s)</label><input type="number" min="5" max="240" value={sps} onChange={e=>setSps(e.target.value)} /></div>
+                    </div>
+                    <div className="muted" style={{marginTop:8}}>Total time: <b>{Number(totalT).toFixed(decT ?? 2)}</b> s</div>
+                  </div>
+                </details>
 
-          <div className="card">
-            <h3 style={{marginTop:0}}>Axis tick steps (optional)</h3>
-            <div className="row">
-              <input id="autoSteps" type="checkbox" checked={autoSteps} onChange={e=>setAutoSteps(e.target.checked)} />
-              <label htmlFor="autoSteps" style={{margin:0}}>Use automatic tick steps</label>
-            </div>
-            {!autoSteps && (
-              <div className="grid" style={{gridTemplateColumns:"repeat(4,1fr)", gap:12, marginTop:12}}>
-                <div><label>t step (s)</label><input type="number" step="any" min="0" placeholder="Auto" value={tStep} onChange={e=>setTStep(e.target.value)} /></div>
-                <div><label>x step (m)</label><input type="number" step="any" min="0" placeholder="Auto" value={xStep} onChange={e=>setXStep(e.target.value)} /></div>
-                <div><label>v step (m/s)</label><input type="number" step="any" min="0" placeholder="Auto" value={vStep} onChange={e=>setVStep(e.target.value)} /></div>
-                <div><label>a step (m/s²)</label><input type="number" step="any" min="0" placeholder="Auto" value={aStep} onChange={e=>setAStep(e.target.value)} /></div>
-              </div>
-            )}
-          </div>
+                <details open>
+                  <summary>Time Segments</summary>
+                  <div className="sectionBody">
+                    <div className="row" style={{justifyContent:"space-between"}}>
+                      <div className="muted">Enter Δt and a for each interval.</div>
+                      <button className="primary" onClick={addSeg}>+ Add</button>
+                    </div>
+                    <div style={{marginTop:8}}>
+                      <table>
+                        <thead><tr><th>#</th><th>Δt (s)</th><th>a (m/s²)</th><th></th></tr></thead>
+                        <tbody>
+                          {segments.map((seg,i)=>(
+                            <tr key={i}>
+                              <td>{i+1}</td>
+                              <td><input type="number" min="0" step="any" value={seg.duration} onChange={e=>updSeg(i,"duration", e.target.value)} /></td>
+                              <td><input type="number" step="any" value={seg.a} onChange={e=>updSeg(i,"a", e.target.value)} /></td>
+                              <td style={{textAlign:"right"}}>
+                                <button onClick={()=>rmSeg(i)} disabled={segments.length===1}>Remove</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </details>
 
-          <div className="grid grid-2" style={{gap:16}}>
-            <div className="card">
-              <h3 style={{marginTop:0}}>Line thickness</h3>
-              <div className="grid" style={{gridTemplateColumns:"repeat(2,1fr)", gap:12}}>
-                <div><label>Data curve</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_DATA} onChange={e=>setLwData(+e.target.value||0)} /></div>
-                <div><label>Axis lines</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_AXIS} onChange={e=>setLwAxis(+e.target.value||0)} /></div>
-                <div><label>y=0 thick axis</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_AXIS_ZERO} onChange={e=>setLwAxisZero(+e.target.value||0)} /></div>
-                <div><label>Grid lines</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_GRID} onChange={e=>setLwGrid(+e.target.value||0)} /></div>
-                <div><label>Tick marks</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_TICKS} onChange={e=>setLwTicks(+e.target.value||0)} /></div>
-              </div>
-            </div>
+                <details>
+                  <summary>Style and Spacing</summary>
+                  <div className="sectionBody">
+                    <div className="grid grid2">
+                      <div><label>Tick font (px)</label><input type="number" min="6" step="1" value={TICK_FONT} onChange={e=>setTickFont(+e.target.value||0)} /></div>
+                      <div><label>Axis font (px)</label><input type="number" min="8" step="1" value={AXIS_FONT} onChange={e=>setAxisFont(+e.target.value||0)} /></div>
+                      <div><label>X tick offset</label><input type="number" min="0" step="1" value={X_TICK_OFFSET} onChange={e=>setXTickOffset(+e.target.value||0)} /></div>
+                      <div><label>X label offset</label><input type="number" min="0" step="1" value={X_LABEL_OFFSET} onChange={e=>setXLabelOffset(+e.target.value||0)} /></div>
+                      <div><label>Y tick offset</label><input type="number" min="0" step="1" value={Y_TICK_OFFSET} onChange={e=>setYTickOffset(+e.target.value||0)} /></div>
+                      <div><label>Y label offset</label><input type="number" min="0" step="1" value={Y_LABEL_OFFSET} onChange={e=>setYLabelOffset(+e.target.value||0)} /></div>
+                    </div>
 
-            <div className="card">
-              <h3 style={{marginTop:0}}>Style & spacing</h3>
-              <div className="grid" style={{gridTemplateColumns:"repeat(3,1fr)", gap:12}}>
-                <div><label>Tick font (px)</label><input type="number" min="6" step="1" value={TICK_FONT} onChange={e=>setTickFont(+e.target.value||0)} /></div>
-                <div><label>Axis font (px)</label><input type="number" min="8" step="1" value={AXIS_FONT} onChange={e=>setAxisFont(+e.target.value||0)} /></div>
-                <div><label>X tick offset</label><input type="number" min="0" step="1" value={X_TICK_OFFSET} onChange={e=>setXTickOffset(+e.target.value||0)} /></div>
-                <div><label>X label offset</label><input type="number" min="0" step="1" value={X_LABEL_OFFSET} onChange={e=>setXLabelOffset(+e.target.value||0)} /></div>
-                <div><label>Y tick offset</label><input type="number" min="0" step="1" value={Y_TICK_OFFSET} onChange={e=>setYTickOffset(+e.target.value||0)} /></div>
-                <div><label>Y label offset</label><input type="number" min="0" step="1" value={Y_LABEL_OFFSET} onChange={e=>setYLabelOffset(+e.target.value||0)} /></div>
-              </div>
+                    <div className="divider"></div>
 
-              <div className="row" style={{marginTop:12}}>
-                <input id="samePad" type="checkbox" checked={useSamePadding} onChange={e=>setUseSamePadding(e.target.checked)} />
-                <label htmlFor="samePad" style={{margin:0}}>Use same padding for all sides</label>
-              </div>
+                    <div className="row">
+                      <input id="samePad" type="checkbox" checked={useSamePadding} onChange={e=>setUseSamePadding(e.target.checked)} />
+                      <label htmlFor="samePad" style={{margin:0}}>Use same padding for all sides</label>
+                    </div>
 
-              {useSamePadding ? (
-                <div style={{maxWidth:220, marginTop:12}}>
-                  <label>Padding (all sides, px)</label>
-                  <input type="number" min="0" step="1" value={paddingAll} onChange={e=>setPaddingAll(+e.target.value||0)} />
+                    {useSamePadding ? (
+                      <div style={{marginTop:8}}>
+                        <label>Padding (all sides, px)</label>
+                        <input type="number" min="0" step="1" value={paddingAll} onChange={e=>setPaddingAll(+e.target.value||0)} />
+                      </div>
+                    ) : (
+                      <div className="grid grid4" style={{marginTop:8}}>
+                        <div><label>Top</label><input type="number" min="0" step="1" value={paddingTop} onChange={e=>setPaddingTop(+e.target.value||0)} /></div>
+                        <div><label>Right</label><input type="number" min="0" step="1" value={paddingRight} onChange={e=>setPaddingRight(+e.target.value||0)} /></div>
+                        <div><label>Bottom</label><input type="number" min="0" step="1" value={paddingBottom} onChange={e=>setPaddingBottom(+e.target.value||0)} /></div>
+                        <div><label>Left</label><input type="number" min="0" step="1" value={paddingLeft} onChange={e=>setPaddingLeft(+e.target.value||0)} /></div>
+                      </div>
+                    )}
+                  </div>
+                </details>
+
+                <details>
+                  <summary>Line Thickness</summary>
+                  <div className="sectionBody">
+                    <div className="grid grid2">
+                      <div><label>Data curve</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_DATA} onChange={e=>setLwData(+e.target.value||0)} /></div>
+                      <div><label>Axis lines</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_AXIS} onChange={e=>setLwAxis(+e.target.value||0)} /></div>
+                      <div><label>y=0 axis</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_AXIS_ZERO} onChange={e=>setLwAxisZero(+e.target.value||0)} /></div>
+                      <div><label>Grid lines</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_GRID} onChange={e=>setLwGrid(+e.target.value||0)} /></div>
+                      <div><label>Tick marks</label><input type="number" step="0.1" min="0" value={LINE_WIDTH_TICKS} onChange={e=>setLwTicks(+e.target.value||0)} /></div>
+                    </div>
+                  </div>
+                </details>
+
+                <details>
+                  <summary>Axis Label Decimals</summary>
+                  <div className="sectionBody">
+                    <div className="row">
+                      <input id="sameDP" type="checkbox" checked={sameDP} onChange={e=>setSameDP(e.target.checked)} />
+                      <label htmlFor="sameDP" style={{margin:0}}>Use same decimals for all axes</label>
+                    </div>
+
+                    {sameDP ? (
+                      <div style={{maxWidth:220, marginTop:8}}>
+                        <label>All axes</label>
+                        <select value={allDP} onChange={e=>setAllDP(e.target.value)}>
+                          <option value="auto">Auto</option><option value="0">0</option><option value="1">1</option>
+                          <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="grid grid4" style={{marginTop:8}}>
+                        <div><label>t</label><select value={dpT} onChange={e=>setDpT(e.target.value)}><option value="auto">Auto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+                        <div><label>x</label><select value={dpX} onChange={e=>setDpX(e.target.value)}><option value="auto">Auto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+                        <div><label>v</label><select value={dpV} onChange={e=>setDpV(e.target.value)}><option value="auto">Auto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+                        <div><label>a</label><select value={dpA} onChange={e=>setDpA(e.target.value)}><option value="auto">Auto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+                      </div>
+                    )}
+                  </div>
+                </details>
+
+                <details>
+                  <summary>Axis Tick Steps</summary>
+                  <div className="sectionBody">
+                    <div className="row">
+                      <input id="autoSteps" type="checkbox" checked={autoSteps} onChange={e=>setAutoSteps(e.target.checked)} />
+                      <label htmlFor="autoSteps" style={{margin:0}}>Use automatic tick steps</label>
+                    </div>
+                    {!autoSteps && (
+                      <div className="grid grid2" style={{marginTop:8}}>
+                        <div><label>t step (s)</label><input type="number" step="any" min="0" placeholder="Auto" value={tStep} onChange={e=>setTStep(e.target.value)} /></div>
+                        <div><label>x step (m)</label><input type="number" step="any" min="0" placeholder="Auto" value={xStep} onChange={e=>setXStep(e.target.value)} /></div>
+                        <div><label>v step (m/s)</label><input type="number" step="any" min="0" placeholder="Auto" value={vStep} onChange={e=>setVStep(e.target.value)} /></div>
+                        <div><label>a step (m/s²)</label><input type="number" step="any" min="0" placeholder="Auto" value={aStep} onChange={e=>setAStep(e.target.value)} /></div>
+                      </div>
+                    )}
+                    <div className="muted" style={{marginTop:8}}>
+                      Tip: If you set a step, ticks start at the first multiple ≥ min.
+                    </div>
+                  </div>
+                </details>
+
+                <div className="muted" style={{marginTop:10}}>
+                  (Scroll this panel — it stays pinned on desktop.)
                 </div>
-              ) : (
-                <div className="grid" style={{gridTemplateColumns:"repeat(4,1fr)", gap:12, marginTop:12}}>
-                  <div><label>Top padding</label><input type="number" min="0" step="1" value={paddingTop} onChange={e=>setPaddingTop(+e.target.value||0)} /></div>
-                  <div><label>Right padding</label><input type="number" min="0" step="1" value={paddingRight} onChange={e=>setPaddingRight(+e.target.value||0)} /></div>
-                  <div><label>Bottom padding</label><input type="number" min="0" step="1" value={paddingBottom} onChange={e=>setPaddingBottom(+e.target.value||0)} /></div>
-                  <div><label>Left padding</label><input type="number" min="0" step="1" value={paddingLeft} onChange={e=>setPaddingLeft(+e.target.value||0)} /></div>
-                </div>
-              )}
+              </div>
+            </div>
+
+            {/* RIGHT: GRAPHS */}
+            <div className="graphs">
+              <div className="grid" style={{gap:14}}>
+                <Chart
+                  data={xData}
+                  xLabel="time (s)"
+                  yLabel="position (m)"
+                  title="Position vs Time"
+                  decimalsX={decT}
+                  decimalsY={decX}
+                  tickStepX={stepT}
+                  tickStepY={stepX}
+                  {...padProps}
+                  {...chartStyleProps}
+                />
+                <Chart
+                  data={vData}
+                  xLabel="time (s)"
+                  yLabel="velocity (m/s)"
+                  title="Velocity vs Time"
+                  decimalsX={decT}
+                  decimalsY={decV}
+                  tickStepX={stepT}
+                  tickStepY={stepV}
+                  {...padProps}
+                  {...chartStyleProps}
+                />
+                <Chart
+                  data={aData}
+                  xLabel="time (s)"
+                  yLabel="acceleration (m/s²)"
+                  title="Acceleration vs Time"
+                  decimalsX={decT}
+                  decimalsY={decA}
+                  tickStepX={stepT}
+                  tickStepY={stepA}
+                  {...padProps}
+                  {...chartStyleProps}
+                />
+              </div>
             </div>
           </div>
-
-          <div className="grid" style={{gap:16}}>
-            <Chart
-              data={xData}
-              xLabel="time (s)"
-              yLabel="position (m)"
-              title="Position vs Time"
-              decimalsX={decT}
-              decimalsY={decX}
-              tickStepX={stepT}
-              tickStepY={stepX}
-              {...padProps}
-              {...chartStyleProps}
-            />
-            <Chart
-              data={vData}
-              xLabel="time (s)"
-              yLabel="velocity (m/s)"
-              title="Velocity vs Time"
-              decimalsX={decT}
-              decimalsY={decV}
-              tickStepX={stepT}
-              tickStepY={stepV}
-              {...padProps}
-              {...chartStyleProps}
-            />
-            <Chart
-              data={aData}
-              xLabel="time (s)"
-              yLabel="acceleration (m/s²)"
-              title="Acceleration vs Time"
-              decimalsX={decT}
-              decimalsY={decA}
-              tickStepX={stepT}
-              tickStepY={stepA}
-              yIsStep
-              {...padProps}
-              {...chartStyleProps}
-            />
-          </div>
-
-          <footer className="muted">
-            Tip: Use whole-number Δt and a for tidy tick marks. PNG/SVG paste crisply into Docs/Slides.
-          </footer>
         </div>
       );
     }
-// Show errors directly on the page (instead of a blank white screen)
-window.addEventListener("error", (e) => {
-  const el = document.getElementById("app");
-  if (!el) return;
-  el.innerHTML = `
-    <div style="max-width:1000px;margin:24px auto;padding:16px;border:1px solid #ef4444;border-radius:12px;background:#fff;">
-      <h2 style="margin:0 0 8px;color:#b91c1c;">JavaScript error</h2>
-      <pre style="white-space:pre-wrap;margin:0;color:#111827;">${String(e.error?.stack || e.message || e)}</pre>
-    </div>
-  `;
-});
-
-window.addEventListener("unhandledrejection", (e) => {
-  const el = document.getElementById("app");
-  if (!el) return;
-  el.innerHTML = `
-    <div style="max-width:1000px;margin:24px auto;padding:16px;border:1px solid #ef4444;border-radius:12px;background:#fff;">
-      <h2 style="margin:0 0 8px;color:#b91c1c;">Unhandled promise rejection</h2>
-      <pre style="white-space:pre-wrap;margin:0;color:#111827;">${String(e.reason?.stack || e.reason || e)}</pre>
-    </div>
-  `;
-});
 
     ReactDOM.createRoot(document.getElementById("app")).render(<App />);
   </script>
