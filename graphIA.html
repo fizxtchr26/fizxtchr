@@ -12,8 +12,16 @@
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; }
     h1 { margin: 0 0 10px; font-size: 20px; }
 
-    .split { display: grid; grid-template-columns: 520px 1fr; gap: 14px; }
-    @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+    /* Embed/mobile-first: stack panels by default */
+    .split {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    /* Only go side-by-side when there's lots of room */
+    @media (min-width: 1200px) {
+      .split { grid-template-columns: 520px 1fr; }
+    }
 
     .card { border: 1px solid #3333; border-radius: 12px; padding: 12px; }
 
@@ -467,11 +475,10 @@
     return `y = ${mm}x${sign}${bb}`;
   }
 
-  // --- NEW: margin helpers to reduce label/tick overlap ---
+  // Margin helpers to reduce label/tick overlap
   function formatExampleTick(value, decimalsOrNull) {
     if (!Number.isFinite(value)) return '0';
     if (decimalsOrNull === null) {
-      // automatic-ish: emulate a typical tick label length without getting huge
       const abs = Math.abs(value);
       if (abs >= 1000) return String(Math.round(value));
       if (abs >= 1) return String(Number(value.toPrecision(6)));
@@ -483,27 +490,16 @@
   function estimateTickChars(minV, maxV, decimalsOrNull) {
     const v = Math.max(Math.abs(minV), Math.abs(maxV));
     const s = formatExampleTick(v, decimalsOrNull);
-    // account for sign + a little buffer
     return s.length + 1;
   }
 
   function calcMargins(plotFontSize, xMin, xMax, yMin, yMax, xDec, yDec) {
-    // Rough px-per-character for typical sans fonts:
     const pxPerChar = plotFontSize * 0.62;
-
     const yChars = estimateTickChars(yMin, yMax, yDec);
-    const xChars = estimateTickChars(xMin, xMax, xDec);
 
-    // Left margin depends on y tick labels width + breathing room for y title
     const left = Math.max(70, Math.ceil(yChars * pxPerChar + plotFontSize * 2.6));
-
-    // Bottom margin depends on x tick label height + x title
     const bottom = Math.max(70, Math.ceil(plotFontSize * 3.6));
-
-    // Top depends on title
     const top = Math.max(60, Math.ceil(plotFontSize * 3.0));
-
-    // Right can stay small
     const right = 20;
 
     return { l: left, r: right, t: top, b: bottom };
@@ -685,7 +681,6 @@
     }
     setEquationsHTML(eqRows.join(''));
 
-    // Axis range logic
     const minX = computeMinWithUncertainty(data.xs, data.dxs);
     const maxX = computeMaxWithUncertainty(data.xs, data.dxs);
 
@@ -750,7 +745,6 @@
     if (forceZeroMinX) xaxis.rangemode = 'tozero';
     if (forceZeroMinY) yaxis.rangemode = 'tozero';
 
-    // NEW: dynamic margins to reduce overlap risk
     const margins = calcMargins(plotFontSize, xMinForTicks, maxX, yMinForTicks, maxY, xDec, yDec);
 
     const layout = {
