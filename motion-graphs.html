@@ -3,53 +3,127 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Motion Graph Maker (Piecewise a)</title>
+  <title>Motion Graph Maker</title>
 
   <style>
     :root { --ink:#1f2937; --line:#2563eb; --grid:#e5e7eb; --axis:#111827; --bg:#ffffff; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; color:var(--ink); background:#f8fafc; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      color:var(--ink);
+      background:#f8fafc;
+    }
+
     .wrap { max-width:1200px; margin:16px auto; padding:0 12px; }
 
     /* Layout: controls left, graphs right */
     .layout { display:grid; gap:14px; }
-    @media (min-width: 980px) { .layout { grid-template-columns: 380px 1fr; align-items:start; } }
-    .controls { position:relative; }
     @media (min-width: 980px) {
-      .controlsInner { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow:auto; padding-right:4px; }
+      .layout { grid-template-columns: 380px 1fr; align-items:start; }
+    }
+
+    .controls { position:relative; min-width: 0; }
+    @media (min-width: 980px) {
+      .controlsInner {
+        position: sticky;
+        top: 12px;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+        overflow-x: hidden; /* prevent horizontal scroll */
+        padding-right: 6px;
+      }
+    }
+    @media (max-width: 979px) {
+      .controlsInner { overflow-x: hidden; }
     }
 
     /* Compact cards */
-    .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow: 0 1px 2px rgba(0,0,0,.04); padding:10px; }
-    .card h3 { margin:0 0 8px; font-size:14px; font-weight:650; color:#111827; }
-    .title { font-size:20px; font-weight:650; margin:0 0 4px; }
-    .subtitle { color:#475569; margin:0 0 12px; font-size:13px; }
+    .card {
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      padding:12px;
+      min-width: 0;
+    }
+
+    .title { font-size:20px; font-weight:650; margin:0 0 10px; }
 
     /* Details sections */
-    details { border:1px solid #eef2f7; border-radius:12px; background:#fff; }
+    details { border:1px solid #eef2f7; border-radius:12px; background:#fff; min-width:0; }
     details + details { margin-top:10px; }
-    summary { cursor:pointer; list-style:none; padding:10px 10px; font-weight:650; font-size:13px; color:#111827; }
+    summary {
+      cursor:pointer;
+      list-style:none;
+      padding:10px 10px;
+      font-weight:650;
+      font-size:13px;
+      color:#111827;
+    }
     summary::-webkit-details-marker { display:none; }
-    .sectionBody { padding:0 10px 10px; }
+    .sectionBody { padding:0 10px 10px; min-width:0; }
 
-    /* Inputs & tables: compact */
+    /* Inputs & tables: compact + shrink-friendly */
     label { font-size:11px; color:#64748b; display:block; margin-bottom:4px; }
-    input[type="number"], select { width:100%; padding:6px 8px; border:1px solid #d1d5db; border-radius:10px; font-size:13px; background:#fff; }
-    .row { display:flex; gap:10px; align-items:center; }
-    .grid { display:grid; gap:10px; }
-    .grid3 { grid-template-columns: repeat(3, 1fr); }
-    .grid2 { grid-template-columns: repeat(2, 1fr); }
-    .grid4 { grid-template-columns: repeat(4, 1fr); }
-    table { width:100%; border-collapse: collapse; }
-    th, td { padding:6px; border-bottom:1px solid #eef2f7; font-size:13px; }
+
+    input[type="number"], select {
+      width:100%;
+      max-width:100%;
+      padding:5px 7px;
+      border:1px solid #d1d5db;
+      border-radius:10px;
+      font-size:13px;
+      background:#fff;
+      min-width: 0;
+    }
+
+    /* Reduce the default spinner footprint a little on some browsers */
+    input[type="number"] { line-height: 1.15; }
+
+    .row { display:flex; gap:10px; align-items:center; min-width:0; }
+    .grid { display:grid; gap:10px; min-width:0; }
+    .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    table {
+      width:100%;
+      border-collapse: collapse;
+      table-layout: fixed; /* keeps content from forcing width */
+    }
+    th, td {
+      padding:6px;
+      border-bottom:1px solid #eef2f7;
+      font-size:13px;
+      vertical-align: middle;
+      overflow: hidden; /* avoid width blowouts */
+    }
     th { text-align:left; color:#475569; font-weight:650; }
+    td:last-child { text-align:right; }
+
     .btnrow { display:flex; gap:8px; flex-wrap:wrap; }
-    button { appearance:none; border:1px solid #cbd5e1; background:#fff; color:#111827; padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer; }
+    button {
+      appearance:none;
+      border:1px solid #cbd5e1;
+      background:#fff;
+      color:#111827;
+      padding:6px 10px;
+      border-radius:10px;
+      font-size:12px;
+      cursor:pointer;
+      white-space: nowrap;
+    }
     button.primary { background:#111827; color:#fff; border-color:#111827; }
     button:disabled { opacity:.5; cursor:not-allowed; }
+
     .muted { color:#64748b; font-size:12px; }
     .divider { height:1px; background:#eef2f7; margin:10px 0; }
 
     /* Graph column */
+    .graphs { min-width:0; }
     .graphs .card { padding:12px; }
     .graphTitle { font-weight:650; font-size:13px; }
   </style>
@@ -64,6 +138,9 @@
 
   <script type="text/babel">
     const { useMemo, useRef, useState } = React;
+
+    // Fixed internal sampling rate (no UI)
+    const SAMPLES_PER_SECOND = 60;
 
     // -------------------- PHYSICS CORE --------------------
     function integratePiecewise({ x0, v0, segments, samplesPerSecond = 60 }) {
@@ -248,7 +325,7 @@
           <svg ref={svgRef} width={width} height={height} style={{background:"#fff", borderRadius:12}}>
             {/* axes */}
             <line x1={padL} y1={padT} x2={padL} y2={height-padB} stroke="#111827" strokeWidth={LINE_WIDTH_AXIS} />
-            <line x1={padL} y1={yZero} x2={width-padR} y2={yZero} stroke="#111827" strokeWidth={LINE_WIDTH_AXIS_ZERO} />
+            <line x1={padL} y1={(0 >= ymin && 0 <= ymax) ? yTo(0) : (height-padB)} x2={width-padR} y2={(0 >= ymin && 0 <= ymax) ? yTo(0) : (height-padB)} stroke="#111827" strokeWidth={LINE_WIDTH_AXIS_ZERO} />
 
             {/* grid + ticks */}
             {xTicks.map((tx,i)=>(
@@ -291,9 +368,8 @@
       // Initial conditions
       const [x0, setX0] = useState(0);
       const [v0, setV0] = useState(2);
-      const [sps, setSps] = useState(60);
 
-      // Time segments
+      // Time intervals
       const [segments, setSegments] = useState([{ duration: 2, a: 0 }, { duration: 2, a: -1 }, { duration: 1.5, a: 2 }]);
 
       // Style & spacing
@@ -346,13 +422,13 @@
       const stepV = autoSteps ? null : valOrNull(vStep);
       const stepA = autoSteps ? null : valOrNull(aStep);
 
-      // Data
+      // Data (fixed sampling rate)
       const { tArr, xArr, vArr, aSteps, totalT } = useMemo(() =>
         integratePiecewise({
           x0:+x0||0, v0:+v0||0,
           segments: segments.map(s=>({duration:+s.duration||0,a:+s.a||0})),
-          samplesPerSecond: Math.max(5, Math.min(240, +sps||60))
-        }), [x0,v0,segments,sps]);
+          samplesPerSecond: SAMPLES_PER_SECOND
+        }), [x0,v0,segments]);
 
       const xData = tArr.map((t,i)=>[t,xArr[i]]);
       const vData = tArr.map((t,i)=>[t,vArr[i]]);
@@ -375,10 +451,7 @@
 
       return (
         <div>
-          <div style={{marginBottom:10}}>
-            <div className="title">Motion Graph Maker (Piecewise Constant Acceleration)</div>
-            <div className="subtitle">Controls on the left, graphs on the right. Export PNGs for worksheets.</div>
-          </div>
+          <div className="title">Motion Graph Maker</div>
 
           <div className="layout">
             {/* LEFT: CONTROLS */}
@@ -387,38 +460,53 @@
                 <details open>
                   <summary>Initial Conditions</summary>
                   <div className="sectionBody">
-                    <div className="grid grid3">
-                      <div><label>x₀ (m)</label><input type="number" value={x0} onChange={e=>setX0(e.target.value)} /></div>
-                      <div><label>v₀ (m/s)</label><input type="number" value={v0} onChange={e=>setV0(e.target.value)} /></div>
-                      <div><label>Sampling (pts/s)</label><input type="number" min="5" max="240" value={sps} onChange={e=>setSps(e.target.value)} /></div>
+                    <div className="grid grid2">
+                      <div>
+                        <label>x₀ (m)</label>
+                        <input type="number" value={x0} onChange={e=>setX0(e.target.value)} />
+                      </div>
+                      <div>
+                        <label>v₀ (m/s)</label>
+                        <input type="number" value={v0} onChange={e=>setV0(e.target.value)} />
+                      </div>
                     </div>
-                    <div className="muted" style={{marginTop:8}}>Total time: <b>{Number(totalT).toFixed(decT ?? 2)}</b> s</div>
                   </div>
                 </details>
 
                 <details open>
-                  <summary>Time Segments</summary>
+                  <summary>Time Intervals</summary>
                   <div className="sectionBody">
-                    <div className="row" style={{justifyContent:"space-between"}}>
-                      <div className="muted">Enter Δt and a for each interval.</div>
+                    <div className="row" style={{justifyContent:"flex-end"}}>
                       <button className="primary" onClick={addSeg}>+ Add</button>
                     </div>
+
                     <div style={{marginTop:8}}>
                       <table>
-                        <thead><tr><th>#</th><th>Δt (s)</th><th>a (m/s²)</th><th></th></tr></thead>
+                        <thead>
+                          <tr>
+                            <th style={{width:"32px"}}>#</th>
+                            <th>Δt (s)</th>
+                            <th>a (m/s²)</th>
+                            <th style={{width:"86px"}}></th>
+                          </tr>
+                        </thead>
                         <tbody>
                           {segments.map((seg,i)=>(
                             <tr key={i}>
                               <td>{i+1}</td>
                               <td><input type="number" min="0" step="any" value={seg.duration} onChange={e=>updSeg(i,"duration", e.target.value)} /></td>
                               <td><input type="number" step="any" value={seg.a} onChange={e=>updSeg(i,"a", e.target.value)} /></td>
-                              <td style={{textAlign:"right"}}>
+                              <td>
                                 <button onClick={()=>rmSeg(i)} disabled={segments.length===1}>Remove</button>
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+
+                      <div className="muted" style={{marginTop:8}}>
+                        Total time: <b>{Number(totalT).toFixed(decT ?? 2)}</b> s
+                      </div>
                     </div>
                   </div>
                 </details>
@@ -513,15 +601,8 @@
                         <div><label>a step (m/s²)</label><input type="number" step="any" min="0" placeholder="Auto" value={aStep} onChange={e=>setAStep(e.target.value)} /></div>
                       </div>
                     )}
-                    <div className="muted" style={{marginTop:8}}>
-                      Tip: If you set a step, ticks start at the first multiple ≥ min.
-                    </div>
                   </div>
                 </details>
-
-                <div className="muted" style={{marginTop:10}}>
-                  (Scroll this panel — it stays pinned on desktop.)
-                </div>
               </div>
             </div>
 
